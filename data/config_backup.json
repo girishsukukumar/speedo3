@@ -1,0 +1,18 @@
+ {
+ "ssid1" : "Sri Anjaneya",
+  "password1" : "ABCD123456",
+  "ssid2" : "JioFi2_C2350B",
+  "password2" : "acie5greuc",
+  "ssid3" : "Girish",
+   "password3" :"mlhw8437",
+   "devicename" : "Rockrider",
+   "tyreDiameter" : 40.25,
+   "record_basic_data" : "yes",
+   "record_gps_data" : "yes",
+   "record_heart_beat" : "yes",
+   "record_body_temp" : "yes",
+   "record_environ_data": "yes",
+   "record_accelormeter" : "yes",
+   "transmit_location" : "yes",
+   "save_to_grafana" : "yes"
+}
