@@ -333,15 +333,14 @@ void COUNT_CADENCE(void *parameters)
                // pedal stops for more that 2 mins 
             }
          }
-       }
-       LastCadenceComputedTime = currentTime ;   
-       cadenceTicks = 0 ;
+       }       
        if (cadenceTicks > 0)
        {
            gtripDuration= gtripDuration + 1 ;
            persistantDataWritten = false ;
-
-       }                     
+       }
+       cadenceTicks = 0 ;                     
+       LastCadenceComputedTime = currentTime ;   
     }
   }  
 }

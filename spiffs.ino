@@ -42,8 +42,8 @@ void ReadPersistantDataFromSPIFFS()
 void WritePersistantDataToSPIFFS()
 {
     File jsonFile ; 
-    StaticJsonDocument<32> doc;
-    
+    StaticJsonDocument<256> doc;
+    char JsonStr[250];
     DEBUG_PRINTF("WritePersistantDataToSPIFFS done \n");
 
     jsonFile = SPIFFS.open(JSON_PERSISTANT_FILE_NAME, FILE_WRITE);
@@ -57,7 +57,8 @@ void WritePersistantDataToSPIFFS()
     doc["TotalDistance"] = gBikeDistance ;
     doc["TripDuration"] = gtripDuration ;
 
-    serializeJson(doc, jsonFile);
+    serializeJson(doc, JsonStr);
+    jsonFile.printf("%s\n", JsonStr);
     DEBUG_PRINTF("WritePersistantDataToSPIFFS done \n");
     jsonFile.close();
     return ;

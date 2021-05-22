@@ -19,7 +19,7 @@ void DisplayDistance(float distance)
     display.print(F(buff));   
     valueToBeDisplayed = 0 ;    
     valueToBeDisplayed =  round(gBikeDistance) ;
-    sprintf(buff,"%d",valueToBeDisplayed);
+    sprintf(buff,"%.2f",gBikeDistance);
     display.print(F(buff));
     sprintf(buff," Km");
     display.println(F(buff));       
