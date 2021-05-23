@@ -6,9 +6,9 @@
  *  ESP8266 Arduino example
  */
 #include <WiFi.h>
-const char* ssid     = "Sri Vayuputra";
-const char* password = "SriAnjaneya";
-const char* host     = "www.google.com";
+const char* ssid     = "xxxxxxx";
+const char* password = "yyyyyyyyy";
+const char* host     = "www.i2otlabs.com";
 
 
 #include <WiFiClient.h>
@@ -151,8 +151,7 @@ bool   gWifiConnection = false ;
 // Declaration for an SSD1306 display connected to I2C (SDA, SCL pins)
 #define OLED_RESET     4 // Reset pin # (or -1 if sharing Arduino reset pin)
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
-//Adafruit_SSD1306 display(0x3c, 21, 22); 
-//Adafruit_SSD1306 display(0x3c, 21, 22); 
+
 
 
 
