@@ -6,11 +6,6 @@
  *  ESP8266 Arduino example
  */
 #include <WiFi.h>
-const char* ssid     = "xxxxxxx";
-const char* password = "yyyyyyyyy";
-const char* host     = "www.i2otlabs.com";
-
-
 #include <WiFiClient.h>
 #include <WebServer.h>
 #include <ESPmDNS.h>
@@ -151,7 +146,8 @@ bool   gWifiConnection = false ;
 // Declaration for an SSD1306 display connected to I2C (SDA, SCL pins)
 #define OLED_RESET     4 // Reset pin # (or -1 if sharing Arduino reset pin)
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
-
+//Adafruit_SSD1306 display(0x3c, 21, 22); 
+//Adafruit_SSD1306 display(0x3c, 21, 22); 
 
 
 
@@ -175,27 +171,6 @@ void ICACHE_RAM_ATTR CADENCE_PIN_Handler()
   cadenceDebounceTimeout = xTaskGetTickCount(); //version of millis() that works from interrupt
   portEXIT_CRITICAL_ISR(&cadenceMux);
 }
-//
-//void ConnectToWifi()
-//{
-//  DEBUG_PRINTLN();
-//  DEBUG_PRINTLN();
-//  DEBUG_PRINT("Connecting to ");
-//  DEBUG_PRINTLN(ssid);
-//  
-//  WiFi.begin(ssid, password);
-//  
-//  while (WiFi.status() != WL_CONNECTED) 
-//  {
-//    delay(500);
-//    DEBUG_PRINT(".");
-//  }
-//
-//  DEBUG_PRINTLN("");
-//  DEBUG_PRINTLN("WiFi connected");  
-//  DEBUG_PRINTLN("IP address: ");
-//  DEBUG_PRINTLN(WiFi.localIP());
-//}
 
 bool ConnectToWifi()
 {
@@ -244,9 +219,17 @@ int ComputePower(float s)
   
   int idx, power ;
   idx = round(s);
-  if ((idx >= 0) && (idx < 60))
+  if (idx >= 60)
   {
-     power = PowerTable[idx] ;
+    power = PowerTable[59];
+  }
+  else if (idx > 0)
+  {
+     power = PowerTable[idx-1] ;
+  }
+  else if (idx == 0)
+  {
+    power = 0 ;
   }
   else
      power = -1 ; // Error will be reported in record file
@@ -255,6 +238,7 @@ int ComputePower(float s)
       
   return power ;
 }
+
 void DISPLAY_TASK(void *parameters)
 {
    int cadence  = 0 ;
@@ -272,7 +256,9 @@ void DISPLAY_TASK(void *parameters)
        //DEBUG_PRINTLN(cadence);
        flag = true ;
        //WritePersistantDataToSPIFFS();
-       WriteToRecordFile(speedAndDistance.Speed,cadence,speedAndDistance.distanceKM);
+       WriteToRecordFile(speedAndDistance.Speed,
+                          cadence,
+                          speedAndDistance.distanceKM);
     }
     if (xQueueReceive(SPEED_TO_DISPLAY_MODULE, &speedAndDistance, 0) == pdTRUE) 
     {

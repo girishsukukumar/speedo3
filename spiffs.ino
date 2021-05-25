@@ -146,7 +146,7 @@ void ReadConfigValuesFromSPIFFS()
   ConfigData.TrainerMode = true ;
 }
 
-void WriteToRecordFile(int cadence,float Speed,float DistanceKM)
+void WriteToRecordFile(float Speed,int cadence,float DistanceKM)
 {
   int     Power ;
   File    recordFile ;

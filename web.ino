@@ -114,6 +114,202 @@ void DisplayGaugeDisplay()
      }
 
 }
+void CopyTemplateToRecordhtml()
+{
+  File inFile, outFile ;
+  inFile =SPIFFS.open("/recordhead.html",  "r");
+  outFile =SPIFFS.open("/records.html",  "w");
+  while(inFile.available())
+  {
+    outFile.write(inFile.read());
+  }
+  inFile.close();
+  outFile.close();
+}
+void SendFileToBrowser()
+{
+  File    filePtr ;
+  String  selectedRecordFileNameStr, recordFile ;
+  char    SelectedFileName[40], header[100];
+  int     len, sent;
+ 
+  if (webServer.hasArg("fileName"))
+  {
+     selectedRecordFileNameStr = webServer.arg("fileName") ;
+     len = selectedRecordFileNameStr.length();
+     selectedRecordFileNameStr.toCharArray(SelectedFileName,len+1); 
+     
+     if (SPIFFS.exists(SelectedFileName))
+     { 
+      
+        filePtr = SPIFFS.open(SelectedFileName,  "r");
+        
+        recordFile = selectedRecordFileNameStr.substring(1); // Removing the / from the beginning of file name
+        len = recordFile.length();
+        recordFile.toCharArray(SelectedFileName,len+1); 
+        sprintf(header,"filename=\"%s\"",SelectedFileName);
+        webServer.sendHeader("Content-Disposition",header);
+        sent = webServer.streamFile(filePtr, "application/text");  
+        filePtr.close();
+        webServer.send(200, "text/html", "<HTML> File sent </HTML>");   
+     }
+     else
+     {
+        char error[100];
+        sprintf(error,"<HTML> <H1> File %s not found </H1> </HTML>",SelectedFileName);
+        webServer.sendHeader("Connection", "close");
+        webServer.send(200, "text/html", error);
+     }
+    
+  }
+  else
+  {
+        char error[100];
+        sprintf(error,"<HTML> <H1> Argument received does not have fileName  </H1> </HTML>");
+        webServer.sendHeader("Connection", "close");
+        webServer.send(200, "text/html", error);
+  }
+}
+void ListRecords()
+{
+     File    htmlFile, rootDir,recordPtr ;
+     size_t  sent;
+     char    radioButtonTag[100];
+     String  fileNameStr ;
+
+     CopyTemplateToRecordhtml();
+     rootDir = SPIFFS.open("/");
+     htmlFile =SPIFFS.open("/records.html",  FILE_APPEND);
+     htmlFile.print("<form  action=\"/ViewCSVFile\" method=\"POST\">");
+     htmlFile.print(" <TABLE border=\"5\"> ");
+
+     recordPtr = rootDir.openNextFile();
+
+     while(recordPtr)
+     {
+      recordPtr = rootDir.openNextFile();   
+      fileNameStr = recordPtr.name();
+      if (fileNameStr.endsWith(".csv") == true)
+      {
+        htmlFile.print("<TR>");
+        htmlFile.print("<TD>");
+        htmlFile.print(recordPtr.name());
+        htmlFile.print("</TD>");
+        
+        htmlFile.print("<TD>");
+        sprintf(radioButtonTag, "<input type=\"radio\" id=\"");
+        htmlFile.print(radioButtonTag);
+        htmlFile.print(recordPtr.name()); 
+        htmlFile.print("\""); 
+        htmlFile.print(" name=\"fileName\"");
+        htmlFile.print(" value=\"");
+        htmlFile.print(recordPtr.name());
+        htmlFile.print("\">");        
+        htmlFile.print("</TD>");
+        htmlFile.print("</TR>\n");
+      }
+      
+     }
+  
+
+     htmlFile.printf("</TABLE>\n");
+     htmlFile.printf("<input type=\"submit\" value=\"Submit\">");
+     htmlFile.printf("</form>");
+     htmlFile.printf("</HTML>\n");
+     htmlFile.close();
+     
+     if (SPIFFS.exists("/records.html"))  
+     { 
+        htmlFile =SPIFFS.open("/records.html",  "r");
+        sent =webServer.streamFile(htmlFile, "text/html");  
+        htmlFile.close();
+     }
+     else
+     {
+         webServer.sendHeader("Connection", "close");
+         webServer.send(200, "text/html", "<HTML> <H1> File records.htm; not found </H1> </HTML>");
+     }
+
+}
+void DeleteRecordFile()
+{
+  String  selectedRecordFileNameStr ;
+  if (webServer.hasArg("fileName"))
+  {
+     selectedRecordFileNameStr = webServer.arg("fileName") ;
+     if (SPIFFS.exists(selectedRecordFileNameStr))
+     { 
+        SPIFFS.remove(selectedRecordFileNameStr);
+        webServer.sendHeader("Connection", "close");
+        webServer.send(200, "text/html", "<HTML> <H1> File Deleted </H1> </HTML>");
+     }
+  } 
+  else
+  {
+        webServer.sendHeader("Connection", "close");
+        webServer.send(200, "text/html", "<HTML> <H1> File not found  </H1> </HTML>");
+    
+  }
+  
+}
+void DeleteRecords()
+{
+     File  htmlFile, rootDir,recordPtr ;
+     size_t  sent;
+     char radioButtonTag[100];
+     String fileNameStr ;
+     
+     CopyTemplateToRecordhtml();
+     rootDir = SPIFFS.open("/");
+     htmlFile =SPIFFS.open("/records.html",  FILE_APPEND);
+     htmlFile.print("<form  action=\"/DeleteCSVFile\" method=\"POST\">");
+     htmlFile.print(" <TABLE border=\"5\"> ");
+
+     recordPtr = rootDir.openNextFile();
+     while(recordPtr)
+     {
+      recordPtr = rootDir.openNextFile();
+      
+      fileNameStr = recordPtr.name();
+      if (fileNameStr.endsWith(".csv") == true)
+      {
+        htmlFile.print("<TR>");
+        htmlFile.print("<TD>");
+        htmlFile.print(recordPtr.name());
+        htmlFile.print("</TD>");
+        
+        htmlFile.print("<TD>");
+        sprintf(radioButtonTag, "<input type=\"radio\" id=\"");
+        htmlFile.print(radioButtonTag);
+        htmlFile.print(recordPtr.name()); 
+        htmlFile.print("\""); 
+        htmlFile.print(" name=\"fileName\"");
+        htmlFile.print(" value=\"");
+        htmlFile.print(recordPtr.name());
+        htmlFile.print("\">");        
+        htmlFile.print("</TD>");
+        htmlFile.print("</TR>\n");
+      }
+      
+     }
+     
+     htmlFile.printf("</TABLE>\n");
+     htmlFile.printf("<input type=\"submit\" value=\"Submit\">");
+     htmlFile.print("</form>");
+     htmlFile.printf("</HTML>\n");
+     htmlFile.close();
+     if (SPIFFS.exists("/records.html"))  
+     { 
+        htmlFile =SPIFFS.open("/records.html",  "r");
+        sent =webServer.streamFile(htmlFile, "text/html");  
+        htmlFile.close();
+     }
+     else
+     {
+         webServer.sendHeader("Connection", "close");
+         webServer.send(200, "text/html", "<HTML> <H1> File Sensor.html not found </H1> </HTML>");
+     } 
+}
 void PostDetails()
 {
   int   hours   = 0 ;
@@ -189,8 +385,8 @@ void PostDetails()
   webServer.sendHeader("Connection", "close");
   webServer.send(200, "json", jsonString);
   Serial.println(jsonString);
-
 }
+
 void UpdateConfigJson()
 {
   // To update config.json
@@ -202,6 +398,10 @@ void ResetTrip()
  //  CreateNewRecordFile();
 }
 
+void ViewCSVFile()
+{
+  
+}
 void setupWebHandler()
 {
    /*return index page which is stored in serverIndex */
@@ -214,13 +414,12 @@ void setupWebHandler()
   webServer.on("/Fileupload",       HTTP_POST,  FileUpload);
   webServer.on("/rebootDevice",     HTTP_POST,  RebootDevice);
   webServer.on("/updateConfigJson", HTTP_POST,  UpdateConfigJson);
+  webServer.on("/ListRecords",      HTTP_POST,  ListRecords);
   webServer.on("/resettrip",        HTTP_POST,  ResetTrip);
-//webServer.on("/ListRecords",      HTTP_GET,   ListRecords);
-//webServer.on("/DeleteRecords",    HTTP_POST,  DeleteRecords);
+  webServer.on("/DeleteRecords",    HTTP_POST,  DeleteRecords);
   webServer.on("/gaugeDisplay",     HTTP_POST,  DisplayGaugeDisplay);
-
-
-
+  webServer.on("/ViewCSVFile",      HTTP_POST,  SendFileToBrowser);
+  webServer.on("/DeleteCSVFile",    HTTP_POST,  DeleteRecordFile);
   /*handling uploading firmware file */
   webServer.on("/update", HTTP_POST, []() {
   webServer.sendHeader("Connection", "close");
