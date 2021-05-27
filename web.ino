@@ -170,6 +170,174 @@ void SendFileToBrowser()
         webServer.send(200, "text/html", error);
   }
 }
+void CopyTopToGraphHtml()
+{
+  File inFile, outFile ;
+  inFile =SPIFFS.open("/graph_1.html",  "r");
+  outFile =SPIFFS.open("/graph.html",  "w");
+  while(inFile.available())
+  {
+    outFile.write(inFile.read());
+  }
+  inFile.close();
+  outFile.close();  
+}
+void CopyBottomToGraphHtml()
+{
+  File inFile, outFile ;
+  inFile =SPIFFS.open("/graph_2.html",  "r");
+  outFile =SPIFFS.open("/graph.html",  FILE_APPEND);
+  while(inFile.available())
+  {
+    outFile.write(inFile.read());
+  }
+  inFile.close();
+  outFile.close();
+  DEBUG_PRINTF("CopyBottomToGraphHtml\n");
+
+}
+
+void ShowGraph()
+{
+    File    recordFilePtr ,graphFilePtr ;
+    String  selectedRecordFileNameStr, recordFile ;
+    char    SelectedFileName[40], header[100];
+    int     len, sent;
+    String  oneLineStr ;
+    char  oneLine[35] ; 
+    char  timeStamp[10];
+    int   rpm ;
+    float Speed ;
+    float distance ;
+    int   power ;
+    char   lineToBeWritten[40];
+    String LineToBeWrittenStr ;
+  if (webServer.hasArg("fileName"))
+  {
+     selectedRecordFileNameStr = webServer.arg("fileName") ;
+     len = selectedRecordFileNameStr.length();
+     selectedRecordFileNameStr.toCharArray(SelectedFileName,len+1); 
+     
+     if (SPIFFS.exists(SelectedFileName))
+     { 
+        CopyTopToGraphHtml() ;
+        graphFilePtr  = SPIFFS.open("/graph.html",  FILE_APPEND);
+        if (graphFilePtr == NULL)
+        {
+          DEBUG_PRINTF("Unable to open graph.html is append mode\n");
+        }
+        recordFilePtr = SPIFFS.open(SelectedFileName,  "r");
+        sprintf(lineToBeWritten,"['Time', 'RPM', 'Speed' , 'Power']");
+        graphFilePtr.printf("%s",lineToBeWritten);
+        //LineToBeWrittenStr = lineToBeWritten ;
+        //graphFilePtr.write(LineToBeWrittenStr);
+        DEBUG_PRINTF("%s\n",lineToBeWritten);
+        while(recordFilePtr.available())
+        {
+          int i ;
+          graphFilePtr.write(',');
+          graphFilePtr.write('\n');
+          oneLineStr = recordFilePtr.readStringUntil('\n');
+          oneLineStr.replace(',',' ');
+          DEBUG_PRINTF("oneLine scanning %d item read \n",i);
+          len = oneLineStr.length();
+          oneLineStr.toCharArray(oneLine,len+1);
+          DEBUG_PRINTF("oneLine: %s\n",oneLine); 
+          i = sscanf(oneLine,"%s %d %f %f %d",timeStamp, &rpm, &Speed, &distance, &power);
+          DEBUG_PRINTF("oneLine scanning %d item scanned \n",i);
+          sprintf(lineToBeWritten, "['%s', %d,%f,%d]", timeStamp, rpm, Speed, power);
+          //graphFilePtr.write((uint8_t*)lineToBeWritten,strlen(lineToBeWritten));
+          LineToBeWrittenStr = lineToBeWritten ;
+          //graphFilePtr.write(LineToBeWrittenStr);
+          graphFilePtr.printf("%s",lineToBeWritten);
+          DEBUG_PRINTF("%s\n",lineToBeWritten);
+        }
+        recordFilePtr.close();
+        graphFilePtr.close();
+        CopyBottomToGraphHtml();
+        
+        graphFilePtr  = SPIFFS.open("/graph.html",  "r");
+        sent = webServer.streamFile(graphFilePtr, "text/html");          
+        graphFilePtr.close();
+     }
+     else
+     {
+        char error[100];
+        sprintf(error,"<HTML> <H1> File %s not found </H1> </HTML>",SelectedFileName);
+        webServer.sendHeader("Connection", "close");
+        webServer.send(200, "text/html", error);
+     }
+  }
+  else
+  {
+        char error[100];
+        sprintf(error,"<HTML> <H1> Argument received does not have fileName  </H1> </HTML>");
+        webServer.sendHeader("Connection", "close");
+        webServer.send(200, "text/html", error);
+  }
+  
+}
+
+void DisplayRecordsForAnalysis()
+{
+     File    htmlFile, rootDir,recordPtr ;
+     size_t  sent;
+     char    radioButtonTag[100];
+     String  fileNameStr ;
+
+     CopyTemplateToRecordhtml();
+     rootDir = SPIFFS.open("/");
+     htmlFile =SPIFFS.open("/records.html",  FILE_APPEND);
+     htmlFile.print("<form  action=\"/ShowGraph\" method=\"POST\">");
+     htmlFile.print(" <TABLE border=\"5\"> ");
+
+     recordPtr = rootDir.openNextFile();
+
+     while(recordPtr)
+     {
+      recordPtr = rootDir.openNextFile();   
+      fileNameStr = recordPtr.name();
+      if (fileNameStr.endsWith(".csv") == true)
+      {
+        htmlFile.print("<TR>");
+        htmlFile.print("<TD>");
+        htmlFile.print(recordPtr.name());
+        htmlFile.print("</TD>");
+        
+        htmlFile.print("<TD>");
+        sprintf(radioButtonTag, "<input type=\"radio\" id=\"");
+        htmlFile.print(radioButtonTag);
+        htmlFile.print(recordPtr.name()); 
+        htmlFile.print("\""); 
+        htmlFile.print(" name=\"fileName\"");
+        htmlFile.print(" value=\"");
+        htmlFile.print(recordPtr.name());
+        htmlFile.print("\">");        
+        htmlFile.print("</TD>");
+        htmlFile.print("</TR>\n");
+      }
+      
+     }
+  
+     htmlFile.printf("</TABLE>\n");
+     htmlFile.printf("<input type=\"submit\" value=\"Submit\">");
+     htmlFile.printf("</form>");
+     htmlFile.printf("</HTML>\n");
+     htmlFile.close();
+     
+     if (SPIFFS.exists("/records.html"))  
+     { 
+        htmlFile =SPIFFS.open("/records.html",  "r");
+        sent =webServer.streamFile(htmlFile, "text/html");  
+        htmlFile.close();
+     }
+     else
+     {
+         webServer.sendHeader("Connection", "close");
+         webServer.send(200, "text/html", "<HTML> <H1> File records.htm; not found </H1> </HTML>");
+     }
+  
+}
 void ListRecords()
 {
      File    htmlFile, rootDir,recordPtr ;
@@ -420,6 +588,9 @@ void setupWebHandler()
   webServer.on("/gaugeDisplay",     HTTP_POST,  DisplayGaugeDisplay);
   webServer.on("/ViewCSVFile",      HTTP_POST,  SendFileToBrowser);
   webServer.on("/DeleteCSVFile",    HTTP_POST,  DeleteRecordFile);
+  webServer.on("/Analysis",         HTTP_POST,  DisplayRecordsForAnalysis);
+  webServer.on("/ShowGraph",        HTTP_POST,  ShowGraph);
+  
   /*handling uploading firmware file */
   webServer.on("/update", HTTP_POST, []() {
   webServer.sendHeader("Connection", "close");
