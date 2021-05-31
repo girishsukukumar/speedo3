@@ -73,25 +73,32 @@ void CreateRecordFile()
   String currentTime, currentDate,dateStamp;
   char    deviceTime[20],deviceDate[20] ;
   int     splitT;
-
+  
+  if (gWifiConnection == true)
+  {
       currentDate = timeClient.getFormattedDate(); 
 
       splitT = currentDate.indexOf("T");
       dateStamp = currentDate.substring(0, splitT);
       len = dateStamp.length();   
       currentDate.toCharArray(deviceDate,len+1);
-
-      
+   
       currentTime = timeClient.getFormattedTime(); 
       len = currentTime.length();
       currentTime.toCharArray(deviceTime,len+1);
-   
-      
+             
       sprintf(recordFileName, "/rec-%s-%s.csv",deviceDate,deviceTime);
-      recordFile =  SPIFFS.open(recordFileName, FILE_WRITE);
-      DEBUG_PRINTF("Created record file,%s\n",recordFileName);
-      recordFile.close(); 
-  
+  }
+  else
+  {
+    //Wifi is not available so date function do not work 
+    // Create record name using random number generator
+    
+     sprintf(recordFileName, "/outdoor-%d-%d.csv",random(1000, 2000),random(3000, 4000));
+  }
+  recordFile =  SPIFFS.open(recordFileName, FILE_WRITE);
+  DEBUG_PRINTF("Created record file,%s\n",recordFileName);
+  recordFile.close(); 
 }
 void ReadConfigValuesFromSPIFFS()
 {
@@ -179,8 +186,9 @@ void WriteToRecordFile(float Speed,int cadence,float DistanceKM)
   else
   {
   
-     recordFile.printf("%d,%0.1f,%0.1f,%d\n",
-                        cadence,Speed,DistanceKM,Power);
+     recordFile.printf("%d,%d,%0.1f,%0.1f,%d\n",
+                        timeCounter,cadence,Speed,DistanceKM,Power);
+     timeCounter++ ;
   }
   //WritePersistantDataToSPIFFS();                
   recordFile.flush();
@@ -189,7 +197,7 @@ void WriteToRecordFile(float Speed,int cadence,float DistanceKM)
 
 void DisplayConfigValues()
 {
-     DEBUG_PRINTF("ssid1 %s \n",ConfigData.ssid1);
+   DEBUG_PRINTF("ssid1 %s \n",ConfigData.ssid1);
    DEBUG_PRINTF("Password %s \n", ConfigData.password1);
 
    DEBUG_PRINTF("ssid2 %s \n",ConfigData.ssid2);

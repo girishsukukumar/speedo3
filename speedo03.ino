@@ -138,7 +138,7 @@ float  gTripDistance  = 0 ;
 float  gBikeDistance  = 0.0 ;
 float  gBikeDistanceInMeters = 0.0;
 bool   gWifiConnection = false ;
-
+int    timeCounter = 0 ; // To be used to track time, in case wifi is not avalable
 
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 32 // OLED display height, in pixels
@@ -244,6 +244,7 @@ void DISPLAY_TASK(void *parameters)
    int cadence  = 0 ;
    struct speedDistance speedAndDistance ;
    bool flag = false ;
+   int zeroCadenceWaterMark =0  ;
   display.clearDisplay();
   DisplaySpeed(speedAndDistance.Speed);
   DisplayRPM(cadence);
@@ -256,9 +257,25 @@ void DISPLAY_TASK(void *parameters)
        //DEBUG_PRINTLN(cadence);
        flag = true ;
        //WritePersistantDataToSPIFFS();
-       WriteToRecordFile(speedAndDistance.Speed,
-                          cadence,
-                          speedAndDistance.distanceKM);
+       if (cadence == 0)
+       {
+          // Count the number of time Cadence is zero
+          zeroCadenceWaterMark++ ;
+       }
+       else
+       {
+          zeroCadenceWaterMark = 0 ;
+       }
+
+       if (zeroCadenceWaterMark <= 2)
+       {
+          // Do not write to record file, in case cadence remains at zero 
+          // for more than 2 minutes.
+          
+          WriteToRecordFile(speedAndDistance.Speed,
+                            cadence,
+                            speedAndDistance.distanceKM);
+       }
     }
     if (xQueueReceive(SPEED_TO_DISPLAY_MODULE, &speedAndDistance, 0) == pdTRUE) 
     {
@@ -333,17 +350,17 @@ void COUNT_CADENCE(void *parameters)
 void COUNT_SPEED(void *parameters) 
 {
   int    speedTicks =0;
-  float  distanceTravelled ;
+  float  distanceTravelled = 0 ;
   char   item  = 'c';
   int    currentTime = 0 ;
   float  timeFrame ;
   //float  Speed  ;
   int    LastSpeedComputedTime=0 ;
 
-  float  DistanceKM    = 0 ;
+  float  DistanceKM     = 0 ;
   int    gTotalDistance = 0 ;
   struct speedDistance speedAndDistance ;
-  ConfigData.wheelCirumference = 2.19  ; //meters
+  //ConfigData.wheelCirumference = 2.19  ; //meter had coded for testing to beremoved
   while (true)
   {
      if (xQueueReceive(SPEED_MSG_QUEUE, (void *)&item, 0) == pdTRUE) 
@@ -452,6 +469,7 @@ void setup()
       ConfigureAsAccessPoint(); 
   }
   CreateRecordFile();
+  WriteToRecordFile(0.0, 0 , 0.0);
 
   display.clearDisplay();
   display.setCursor(10, 0);

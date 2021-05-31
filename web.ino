@@ -201,17 +201,23 @@ void ShowGraph()
 {
     File    recordFilePtr ,graphFilePtr ;
     String  selectedRecordFileNameStr, recordFile ;
-    char    SelectedFileName[40], header[100];
+    char    SelectedFileName[40], fileNameForScanning[40];
     int     len, sent;
     String  oneLineStr ;
-    char  oneLine[35] ; 
-    char  timeStamp[10];
-    int   rpm ;
-    float Speed ;
-    float distance ;
-    int   power ;
-    char   lineToBeWritten[40];
-    String LineToBeWrittenStr ;
+    char    oneLine[35] ; 
+    char    timeStamp[10];
+    int     rpm ;
+    float   Speed ;
+    float   distance ;
+    int     power ;
+    char    lineToBeWritten[40];
+    String  LineToBeWrittenStr ;
+    //String  currentTime, currentDate,dateStamp;
+    char    startTime[20],StartDate[20] ;
+    int     splitT;
+    int     i,count =0;
+    bool    firstLineRead = false ;
+    int     Day, Month, Year ;
   if (webServer.hasArg("fileName"))
   {
      selectedRecordFileNameStr = webServer.arg("fileName") ;
@@ -220,6 +226,19 @@ void ShowGraph()
      
      if (SPIFFS.exists(SelectedFileName))
      { 
+        strcpy(fileNameForScanning,SelectedFileName);
+        len = strlen(fileNameForScanning);
+        for(i = 0 ; i < len ; i++)
+        {
+           if ((fileNameForScanning[i] == '-') || (fileNameForScanning[i] == ':'))
+           {
+               fileNameForScanning[i] = ' ' ;
+           }
+           
+        }
+        sscanf(fileNameForScanning,"/rec %d %d %d %d %d %d.csv",&Year, &Month,&Day, &len,&len,&len);
+        
+        len = 0 ;
         CopyTopToGraphHtml() ;
         graphFilePtr  = SPIFFS.open("/graph.html",  FILE_APPEND);
         if (graphFilePtr == NULL)
@@ -229,29 +248,38 @@ void ShowGraph()
         recordFilePtr = SPIFFS.open(SelectedFileName,  "r");
         sprintf(lineToBeWritten,"['Time', 'RPM', 'Speed' , 'Power']");
         graphFilePtr.printf("%s",lineToBeWritten);
-        //LineToBeWrittenStr = lineToBeWritten ;
-        //graphFilePtr.write(LineToBeWrittenStr);
-        DEBUG_PRINTF("%s\n",lineToBeWritten);
+        
         while(recordFilePtr.available())
         {
           int i ;
           graphFilePtr.write(',');
           graphFilePtr.write('\n');
-          oneLineStr = recordFilePtr.readStringUntil('\n');
-          oneLineStr.replace(',',' ');
-          DEBUG_PRINTF("oneLine scanning %d item read \n",i);
-          len = oneLineStr.length();
+          oneLineStr = recordFilePtr.readStringUntil('\n'); 
+          oneLineStr.replace(',',' '); // Replace comma with space so that sscanf() will work smoothly
+          len = oneLineStr.length(); 
           oneLineStr.toCharArray(oneLine,len+1);
-          DEBUG_PRINTF("oneLine: %s\n",oneLine); 
+          
           i = sscanf(oneLine,"%s %d %f %f %d",timeStamp, &rpm, &Speed, &distance, &power);
-          DEBUG_PRINTF("oneLine scanning %d item scanned \n",i);
+          if (firstLineRead == false)
+          {
+            strcpy(startTime,timeStamp); //The time stamp of the first record show the work out start time
+            firstLineRead = true ;
+          }
+
+         
           sprintf(lineToBeWritten, "['%s', %d,%f,%d]", timeStamp, rpm, Speed, power);
-          //graphFilePtr.write((uint8_t*)lineToBeWritten,strlen(lineToBeWritten));
+          
           LineToBeWrittenStr = lineToBeWritten ;
-          //graphFilePtr.write(LineToBeWrittenStr);
+          
           graphFilePtr.printf("%s",lineToBeWritten);
-          DEBUG_PRINTF("%s\n",lineToBeWritten);
+
+          count++ ;
+          
         }
+        graphFilePtr.printf("]);\n");
+        graphFilePtr.printf("var options = {\n");
+        graphFilePtr.printf("title: 'Date:%d-%d-%d, Time of start: %s, Duration %d minutes, Distance %.2f Km',\n",Day,Month,Year,startTime, count,distance);
+        
         recordFilePtr.close();
         graphFilePtr.close();
         CopyBottomToGraphHtml();
@@ -277,6 +305,20 @@ void ShowGraph()
   }
   
 }
+int CountNoOfRecords(String fileName)
+{
+  File csvFile ;
+  int  count = 0 ;
+  
+  csvFile =SPIFFS.open(fileName,  FILE_READ);
+  while(csvFile.available())
+  {
+     csvFile.readStringUntil('\n'); 
+     count++ ;
+  }
+  csvFile.close() ;
+  return count ;
+}
 
 void DisplayRecordsForAnalysis()
 {
@@ -288,6 +330,7 @@ void DisplayRecordsForAnalysis()
      CopyTemplateToRecordhtml();
      rootDir = SPIFFS.open("/");
      htmlFile =SPIFFS.open("/records.html",  FILE_APPEND);
+     htmlFile.print("<H1> <CENTER>Select a file for analysing </H1>\n");
      htmlFile.print("<form  action=\"/ShowGraph\" method=\"POST\">");
      htmlFile.print(" <TABLE border=\"5\"> ");
 
@@ -299,11 +342,15 @@ void DisplayRecordsForAnalysis()
       fileNameStr = recordPtr.name();
       if (fileNameStr.endsWith(".csv") == true)
       {
+        int noOfRecords;
         htmlFile.print("<TR>");
         htmlFile.print("<TD>");
         htmlFile.print(recordPtr.name());
         htmlFile.print("</TD>");
-        
+        noOfRecords = CountNoOfRecords(recordPtr.name());
+        htmlFile.print("<TD>");
+        htmlFile.print(noOfRecords);
+        htmlFile.print("</TD>");
         htmlFile.print("<TD>");
         sprintf(radioButtonTag, "<input type=\"radio\" id=\"");
         htmlFile.print(radioButtonTag);
@@ -322,7 +369,7 @@ void DisplayRecordsForAnalysis()
      htmlFile.printf("</TABLE>\n");
      htmlFile.printf("<input type=\"submit\" value=\"Submit\">");
      htmlFile.printf("</form>");
-     htmlFile.printf("</HTML>\n");
+     htmlFile.printf("</CENTER></HTML>\n");
      htmlFile.close();
      
      if (SPIFFS.exists("/records.html"))  
@@ -344,10 +391,12 @@ void ListRecords()
      size_t  sent;
      char    radioButtonTag[100];
      String  fileNameStr ;
+     int     noOfRecords ;
 
      CopyTemplateToRecordhtml();
      rootDir = SPIFFS.open("/");
      htmlFile =SPIFFS.open("/records.html",  FILE_APPEND);
+     htmlFile.print("<H1> <CENTER>Select  Files for Down load </H1>\n");
      htmlFile.print("<form  action=\"/ViewCSVFile\" method=\"POST\">");
      htmlFile.print(" <TABLE border=\"5\"> ");
 
@@ -364,6 +413,11 @@ void ListRecords()
         htmlFile.print(recordPtr.name());
         htmlFile.print("</TD>");
         
+        noOfRecords = CountNoOfRecords(recordPtr.name());
+        htmlFile.print("<TD>");
+        htmlFile.print(noOfRecords);
+        htmlFile.print("</TD>");
+                
         htmlFile.print("<TD>");
         sprintf(radioButtonTag, "<input type=\"radio\" id=\"");
         htmlFile.print(radioButtonTag);
@@ -383,7 +437,7 @@ void ListRecords()
      htmlFile.printf("</TABLE>\n");
      htmlFile.printf("<input type=\"submit\" value=\"Submit\">");
      htmlFile.printf("</form>");
-     htmlFile.printf("</HTML>\n");
+     htmlFile.printf("</CENTER> </HTML>\n");
      htmlFile.close();
      
      if (SPIFFS.exists("/records.html"))  
@@ -422,14 +476,16 @@ void DeleteRecordFile()
 }
 void DeleteRecords()
 {
-     File  htmlFile, rootDir,recordPtr ;
+     File    htmlFile, rootDir,recordPtr ;
      size_t  sent;
-     char radioButtonTag[100];
-     String fileNameStr ;
+     char    radioButtonTag[100];
+     String  fileNameStr ;
+     int     noOfRecords ;
      
      CopyTemplateToRecordhtml();
      rootDir = SPIFFS.open("/");
      htmlFile =SPIFFS.open("/records.html",  FILE_APPEND);
+     htmlFile.print("<H1> <CENTER>Select  Files for Deletion </H1>\n");
      htmlFile.print("<form  action=\"/DeleteCSVFile\" method=\"POST\">");
      htmlFile.print(" <TABLE border=\"5\"> ");
 
@@ -445,6 +501,11 @@ void DeleteRecords()
         htmlFile.print("<TD>");
         htmlFile.print(recordPtr.name());
         htmlFile.print("</TD>");
+
+        noOfRecords = CountNoOfRecords(recordPtr.name());        
+        htmlFile.print("<TD>");
+        htmlFile.print(noOfRecords);
+        htmlFile.print("</TD>");        
         
         htmlFile.print("<TD>");
         sprintf(radioButtonTag, "<input type=\"radio\" id=\"");
@@ -464,7 +525,7 @@ void DeleteRecords()
      htmlFile.printf("</TABLE>\n");
      htmlFile.printf("<input type=\"submit\" value=\"Submit\">");
      htmlFile.print("</form>");
-     htmlFile.printf("</HTML>\n");
+     htmlFile.printf("</CENTER> </HTML>\n");
      htmlFile.close();
      if (SPIFFS.exists("/records.html"))  
      { 
